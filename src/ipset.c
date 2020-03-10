@@ -35,9 +35,6 @@ static struct ipset_session *sess;
 const char *typename = "hash:ip";
 const struct ipset_type *type = NULL;
 
-static bool ipset_try_create();
-static bool has_ipset_setname();
-
 static int exit_error(int e, struct ipset_session *sess)
 {
 #ifdef WITH_LIBIPSET_V6_COMPAT
@@ -60,6 +57,32 @@ static int ip_valid(char *ipaddr)
 
     ret = inet_pton(family, ipaddr, &(sa.sin_addr));
     return ret != 0;
+}
+
+static bool has_ipset_setname(const char *setname) {
+    ipset_session_data_set(sess, IPSET_SETNAME, setname);
+    return ipset_cmd(sess, IPSET_CMD_HEADER, 0) == 0;
+}
+
+static bool ipset_try_create(char *set)
+{
+    int r;
+
+    r = ipset_session_data_set(sess, IPSET_SETNAME, set);
+    if (r != 0) {
+        return exit_error(1, sess);
+    }
+
+    ipset_session_data_set(sess, IPSET_OPT_TYPENAME, typename);
+
+    type = ipset_type_get(sess, IPSET_CMD_CREATE);
+    if (type == NULL) {
+        return false;
+    }
+
+    r = ipset_cmd(sess, IPSET_CMD_CREATE, 0);
+
+    return r == 0;
 }
 
 int ipset_do(int c, char *set, char *elem)
@@ -126,32 +149,6 @@ int ipset_do(int c, char *set, char *elem)
     ipset_session_fini(sess);
 
     return 0;
-}
-
-static bool has_ipset_setname(const char *setname) {
-    ipset_session_data_set(sess, IPSET_SETNAME, setname);
-    return ipset_cmd(sess, IPSET_CMD_HEADER, 0) == 0;
-}
-
-static bool ipset_try_create(char *set)
-{
-    int r;
-
-    r = ipset_session_data_set(sess, IPSET_SETNAME, set);
-    if (r != 0) {
-        return exit_error(1, sess);
-    }
-
-    ipset_session_data_set(sess, IPSET_OPT_TYPENAME, typename);
-
-    type = ipset_type_get(sess, IPSET_CMD_CREATE);
-    if (type == NULL) {
-        return false;
-    }
-
-    r = ipset_cmd(sess, IPSET_CMD_CREATE, 0);
-
-    return r == 0;
 }
 
 int ipset_add(char *set, char *elem)
